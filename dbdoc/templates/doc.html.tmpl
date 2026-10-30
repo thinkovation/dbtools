@@ -105,7 +105,7 @@ section.table { border-top: 1px solid var(--border); }
         <td><code>{{.Type}}</code></td>
         <td>{{if .Nullable}}yes{{else}}<span class="muted">no</span>{{end}}</td>
         <td>{{with .Default}}<code>{{.}}</code>{{end}}</td>
-        <td>{{range split .Keys}}<span class="key">{{.}}</span>{{end}}{{if .References}} → {{if .RefAnchor}}<a href="#{{.RefAnchor}}">{{.References}}</a>{{else}}{{.References}}{{end}}{{end}}</td>
+        <td>{{range split .Keys}}<span class="key">{{.}}</span>{{end}}{{range $i, $r := .References}}{{if $i}},{{else}} →{{end}} {{if $r.Anchor}}<a href="#{{$r.Anchor}}">{{$r.Target}}</a>{{else}}{{$r.Target}}{{end}}{{end}}</td>
         <td>{{.Comment}}{{if .Extra}} <span class="muted">({{.Extra}})</span>{{end}}</td>
       </tr>
     {{- end}}

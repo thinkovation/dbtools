@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -38,9 +39,14 @@ type TableDoc struct {
 
 type ColumnDoc struct {
 	*dbinspect.Column
-	Keys       string // "PK", "FK", "PK, FK", "UQ"
-	References string // "table.column" for FK columns
-	RefAnchor  string
+	Keys       string      // "PK", "FK", "PK, FK", "UQ"
+	References []ColumnRef // FK targets; a column can be in several FKs
+}
+
+// ColumnRef is the target of a foreign key from a single column.
+type ColumnRef struct {
+	Target string // "table.column", schema-qualified when external
+	Anchor string // empty when the target isn't documented here
 }
 
 // Ref is one side of a foreign-key relationship as seen from a table.
@@ -71,8 +77,14 @@ func buildDoc(s *dbinspect.Schema, title string, diagram bool, now time.Time) (*
 	}
 
 	anchors := map[string]string{}
+	used := map[string]bool{}
 	for _, t := range s.Tables {
-		anchors[t.Name] = anchor(t.Name)
+		a := anchor(t.Name)
+		for i := 2; used[a]; i++ {
+			a = fmt.Sprintf("%s-%d", anchor(t.Name), i)
+		}
+		used[a] = true
+		anchors[t.Name] = a
 	}
 	findings := map[string][]dbinspect.Finding{}
 	for _, f := range report.Findings {
@@ -108,18 +120,19 @@ func buildDoc(s *dbinspect.Schema, title string, diagram bool, now time.Time) (*
 		for _, c := range t.PrimaryKey {
 			keys[c] = append(keys[c], "PK")
 		}
-		fkTarget := map[string][2]string{}
+		fkTargets := map[string][]ColumnRef{}
 		for _, fk := range t.ForeignKeys {
-			target := fk.RefTable
+			target, targetAnchor := fk.RefTable, anchors[fk.RefTable]
 			if fk.RefSchema != "" {
-				target = fk.RefSchema + "." + fk.RefTable
+				// A same-named local table is a different table.
+				target, targetAnchor = fk.RefSchema+"."+fk.RefTable, ""
 			}
 			for i, c := range fk.Columns {
 				keys[c] = append(keys[c], "FK")
-				fkTarget[c] = [2]string{target + "." + fk.RefColumns[i], anchors[fk.RefTable]}
+				fkTargets[c] = append(fkTargets[c], ColumnRef{target + "." + fk.RefColumns[i], targetAnchor})
 			}
 			td.References = append(td.References, Ref{
-				Table: target, Anchor: anchors[fk.RefTable], Name: fk.Name, OnDelete: fk.OnDelete,
+				Table: target, Anchor: targetAnchor, Name: fk.Name, OnDelete: fk.OnDelete,
 				Columns: strings.Join(fk.Columns, ", "), RefColumns: strings.Join(fk.RefColumns, ", "),
 			})
 		}
@@ -133,11 +146,9 @@ func buildDoc(s *dbinspect.Schema, title string, diagram bool, now time.Time) (*
 			}
 		}
 		for _, c := range t.Columns {
-			cd := ColumnDoc{Column: c, Keys: strings.Join(dedupe(keys[c.Name]), ", ")}
-			if tgt, ok := fkTarget[c.Name]; ok {
-				cd.References, cd.RefAnchor = tgt[0], tgt[1]
-			}
-			td.Columns = append(td.Columns, cd)
+			td.Columns = append(td.Columns, ColumnDoc{
+				Column: c, Keys: strings.Join(dedupe(keys[c.Name]), ", "), References: fkTargets[c.Name],
+			})
 		}
 		d.Tables = append(d.Tables, td)
 	}

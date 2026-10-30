@@ -80,24 +80,40 @@ func run(dsn, schema, format, out, title string, diagram, timestamp bool, timeou
 	if out == "" {
 		return render(os.Stdout, d)
 	}
-	f, err := os.Create(out)
+	if err := writeFileAtomic(out, func(w io.Writer) error { return render(w, d) }); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "dbdoc: wrote %d tables and %d views to %s\n", d.TableCount, d.ViewCount, out)
+	return nil
+}
+
+// writeFileAtomic renders into a temporary file beside path and renames it
+// into place only on success, so a failure never leaves a truncated file.
+func writeFileAtomic(path string, render func(io.Writer) error) (err error) {
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp*")
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			f.Close()
+			os.Remove(f.Name())
+		}
+	}()
 	w := bufio.NewWriter(f)
-	if err := render(w, d); err != nil {
-		f.Close()
+	if err = render(w); err != nil {
 		return err
 	}
-	if err := w.Flush(); err != nil {
-		f.Close()
+	if err = w.Flush(); err != nil {
 		return err
 	}
-	if err := f.Close(); err != nil {
+	if err = f.Chmod(0o644); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "dbdoc: wrote %d tables to %s\n", len(d.Tables), out)
-	return nil
+	if err = f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path)
 }
 
 func formatFromPath(path string) string {

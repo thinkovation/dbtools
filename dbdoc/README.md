@@ -14,10 +14,15 @@ go install github.com/thinkovation/dbtools/dbdoc@latest
 ## Usage
 
 ```bash
-dbdoc -dsn 'postgres://user:pass@localhost:5432/app?sslmode=disable' -out SCHEMA.md
-dbdoc -dsn 'mysql://user:pass@localhost:3306/app' -out schema.html
-DATABASE_URL=… dbdoc -no-timestamp -out docs/SCHEMA.md   # reproducible, for committing
+export DATABASE_URL='postgres://user@localhost:5432/app?sslmode=disable'
+dbdoc -out SCHEMA.md
+dbdoc -out schema.html
+dbdoc -no-timestamp -out docs/SCHEMA.md   # reproducible, for committing
 ```
+
+Prefer `DATABASE_URL` (or a `~/.pgpass` file for Postgres) over putting a
+password in `-dsn`: command-line arguments end up in shell history and are
+visible to other users in process listings.
 
 | Flag            | Default           | Meaning                                                 |
 |-----------------|-------------------|---------------------------------------------------------|

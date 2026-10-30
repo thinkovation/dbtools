@@ -27,20 +27,20 @@ _Generated {{.Generated.Format "2006-01-02 15:04 MST"}} by dbdoc._
 <a id="{{.Anchor}}"></a>
 ## {{md .Name}}
 
-{{if .Comment}}{{.Comment}}
+{{if .Comment}}{{mdtext .Comment}}
 
 {{end}}_{{.Kind}} · ~{{.RowEstimate}} rows{{if .PrimaryKey}} · primary key ({{join .PrimaryKey ", "}}){{end}}_
 
 | Column | Type | Null | Default | Key | Description |
 |--------|------|:----:|---------|-----|-------------|
 {{- range .Columns}}
-| `{{md .Name}}` | `{{md .Type}}` | {{if .Nullable}}yes{{else}}no{{end}} | {{with .Default}}`{{md .}}`{{end}} | {{.Keys}}{{if .References}} → {{if .RefAnchor}}[{{.References}}](#{{.RefAnchor}}){{else}}{{.References}}{{end}}{{end}} | {{md .Comment}}{{if .Extra}}{{if .Comment}} {{end}}_({{.Extra}})_{{end}} |
+| {{md (code .Name)}} | {{md (code .Type)}} | {{if .Nullable}}yes{{else}}no{{end}} | {{with .Default}}{{md (code .)}}{{end}} | {{.Keys}}{{range $i, $r := .References}}{{if $i}},{{else}} →{{end}} {{if $r.Anchor}}[{{md $r.Target}}](#{{$r.Anchor}}){{else}}{{md $r.Target}}{{end}}{{end}} | {{md .Comment}}{{if .Extra}}{{if .Comment}} {{end}}_({{.Extra}})_{{end}} |
 {{- end}}
 {{- if .Indexes}}
 
 **Indexes**
 {{range .Indexes}}
-- `{{md .Name}}`{{if .Unique}} (unique){{end}}: {{join .Columns ", "}}
+- {{code .Name}}{{if .Unique}} (unique){{end}}: {{join .Columns ", "}}
 {{- end}}
 {{- end}}
 {{- if .References}}
