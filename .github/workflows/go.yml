@@ -1,0 +1,46 @@
+name: Go
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Enables the dbinspect integration test against the service above.
+      DBINSPECT_PG_DSN: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+          cache-dependency-path: "**/go.sum"
+
+      # go.work makes dbdoc build against the dbinspect in this checkout, so a
+      # PR that changes both is tested together.
+      - name: go vet
+        run: go vet ./dbinspect/... ./dbdoc/...
+
+      - name: go test
+        run: go test -race ./dbinspect/... ./dbdoc/...
