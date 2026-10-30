@@ -1,0 +1,79 @@
+# {{.Title}}
+
+{{.Dialect}} schema `{{.Schema}}` · {{.TableCount}} tables · {{.ViewCount}} views · {{.ColumnCount}} columns · {{.RelCount}} relationships
+{{- if not .Generated.IsZero}}
+
+_Generated {{.Generated.Format "2006-01-02 15:04 MST"}} by dbdoc._
+{{- end}}
+
+## Contents
+
+| Name | Kind | ~Rows | Description |
+|------|------|------:|-------------|
+{{- range .Tables}}
+| [{{md .Name}}](#{{.Anchor}}) | {{.Kind}} | {{.RowEstimate}} | {{md .Comment}} |
+{{- end}}
+{{- if .Diagram}}
+
+## Entity-relationship diagram
+
+```mermaid
+{{.Diagram}}```
+{{- end}}
+{{- range .Tables}}
+
+---
+
+<a id="{{.Anchor}}"></a>
+## {{md .Name}}
+
+{{if .Comment}}{{.Comment}}
+
+{{end}}_{{.Kind}} · ~{{.RowEstimate}} rows{{if .PrimaryKey}} · primary key ({{join .PrimaryKey ", "}}){{end}}_
+
+| Column | Type | Null | Default | Key | Description |
+|--------|------|:----:|---------|-----|-------------|
+{{- range .Columns}}
+| `{{md .Name}}` | `{{md .Type}}` | {{if .Nullable}}yes{{else}}no{{end}} | {{with .Default}}`{{md .}}`{{end}} | {{.Keys}}{{if .References}} → {{if .RefAnchor}}[{{.References}}](#{{.RefAnchor}}){{else}}{{.References}}{{end}}{{end}} | {{md .Comment}}{{if .Extra}}{{if .Comment}} {{end}}_({{.Extra}})_{{end}} |
+{{- end}}
+{{- if .Indexes}}
+
+**Indexes**
+{{range .Indexes}}
+- `{{md .Name}}`{{if .Unique}} (unique){{end}}: {{join .Columns ", "}}
+{{- end}}
+{{- end}}
+{{- if .References}}
+
+**References**
+{{range .References}}
+- ({{.Columns}}) → {{if .Anchor}}[{{.Table}}](#{{.Anchor}}){{else}}{{.Table}}{{end}} ({{.RefColumns}}){{if .OnDelete}}, on delete {{.OnDelete}}{{end}}
+{{- end}}
+{{- end}}
+{{- if .ReferencedBy}}
+
+**Referenced by**
+{{range .ReferencedBy}}
+- [{{.Table}}](#{{.Anchor}}) ({{.RefColumns}}){{if .OnDelete}}, on delete {{.OnDelete}}{{end}}
+{{- end}}
+{{- end}}
+{{- if .Findings}}
+
+**Notes**
+{{range .Findings}}
+- {{.Severity}}: {{.Message}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- if .Findings}}
+
+---
+
+## Findings
+
+| Severity | Table | Check | Detail |
+|----------|-------|-------|--------|
+{{- range .Findings}}
+| {{.Severity}} | {{md .Table}} | {{.Check}} | {{md .Message}} |
+{{- end}}
+{{- end}}

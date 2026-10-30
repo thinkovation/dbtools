@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}}</title>
+<style>
+:root {
+  --bg: #ffffff; --fg: #1d2330; --muted: #5f6878; --border: #dde1e8;
+  --panel: #f6f7f9; --accent: #2457c5; --warn: #a15c00; --warn-bg: #fff4e0;
+  --code: #eef1f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c; --fg: #e3e6eb; --muted: #9aa3b2; --border: #2c323b;
+    --panel: #1b1f26; --accent: #7aa2ff; --warn: #f0b05a; --warn-bg: #3a2c14;
+    --code: #232831;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 20px 16px;
+  border-right: 1px solid var(--border); background: var(--panel); }
+nav h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+nav input { width: 100%; padding: 6px 8px; margin-bottom: 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+nav ul { list-style: none; margin: 0; padding: 0; }
+nav li a { display: block; padding: 2px 6px; border-radius: 4px; color: var(--fg);
+  text-decoration: none; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+nav li a:hover { background: var(--border); }
+nav li.view a { color: var(--muted); font-style: italic; }
+main { padding: 28px 40px 80px; min-width: 0; max-width: 1200px; }
+h1 { margin: 0 0 4px; font-size: 28px; }
+h2 { margin: 48px 0 6px; font-size: 21px; scroll-margin-top: 16px; }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 20px 0 6px; }
+.meta { color: var(--muted); margin: 0 0 12px; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; min-width: 110px; }
+.stat b { display: block; font-size: 22px; }
+.stat span { color: var(--muted); font-size: 13px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+.key { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 5px; border-radius: 3px;
+  border: 1px solid var(--border); margin-right: 3px; }
+.muted { color: var(--muted); }
+ul.plain { margin: 0; padding-left: 20px; }
+.note { background: var(--warn-bg); color: var(--fg); border-left: 3px solid var(--warn); padding: 6px 12px; margin: 4px 0; border-radius: 4px; font-size: 14px; }
+.note.info { background: var(--panel); border-left-color: var(--border); }
+.sev-warning { color: var(--warn); font-weight: 600; }
+td code { white-space: nowrap; }
+.diagram { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow: auto; }
+section.table { border-top: 1px solid var(--border); }
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+  nav { position: static; height: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--border); }
+  main { padding: 20px 16px 60px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <h2>Tables</h2>
+  <input type="search" id="filter" placeholder="Filter…" aria-label="Filter tables">
+  <ul id="toc">
+  {{- range .Tables}}
+    <li{{if or (eq .Kind "view") (eq .Kind "materialized view")}} class="view"{{end}}><a href="#{{.Anchor}}">{{.Name}}</a></li>
+  {{- end}}
+  </ul>
+</nav>
+<main>
+  <h1>{{.Title}}</h1>
+  <p class="meta">{{.Dialect}} schema <code>{{.Schema}}</code>{{if not .Generated.IsZero}} · generated {{.Generated.Format "2006-01-02 15:04 MST"}}{{end}}</p>
+  <div class="stats">
+    <div class="stat"><b>{{.TableCount}}</b><span>tables</span></div>
+    <div class="stat"><b>{{.ViewCount}}</b><span>views</span></div>
+    <div class="stat"><b>{{.ColumnCount}}</b><span>columns</span></div>
+    <div class="stat"><b>{{.RelCount}}</b><span>relationships</span></div>
+    <div class="stat"><b>{{len .Findings}}</b><span>findings</span></div>
+  </div>
+
+  {{- if .Diagram}}
+  <h2 id="diagram">Entity-relationship diagram</h2>
+  <div class="diagram"><pre class="mermaid">{{.Diagram}}</pre></div>
+  {{- end}}
+
+  {{- range .Tables}}
+  <section class="table">
+  <h2 id="{{.Anchor}}">{{.Name}}</h2>
+  <p class="meta">{{.Kind}} · ~{{.RowEstimate}} rows{{if .PrimaryKey}} · primary key ({{join .PrimaryKey ", "}}){{end}}</p>
+  {{- if .Comment}}<p>{{.Comment}}</p>{{end}}
+  <div class="scroll"><table>
+    <thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Description</th></tr></thead>
+    <tbody>
+    {{- range .Columns}}
+      <tr>
+        <td><code>{{.Name}}</code></td>
+        <td><code>{{.Type}}</code></td>
+        <td>{{if .Nullable}}yes{{else}}<span class="muted">no</span>{{end}}</td>
+        <td>{{with .Default}}<code>{{.}}</code>{{end}}</td>
+        <td>{{range split .Keys}}<span class="key">{{.}}</span>{{end}}{{if .References}} → {{if .RefAnchor}}<a href="#{{.RefAnchor}}">{{.References}}</a>{{else}}{{.References}}{{end}}{{end}}</td>
+        <td>{{.Comment}}{{if .Extra}} <span class="muted">({{.Extra}})</span>{{end}}</td>
+      </tr>
+    {{- end}}
+    </tbody>
+  </table></div>
+  {{- if .Indexes}}
+  <h3>Indexes</h3>
+  <ul class="plain">
+  {{- range .Indexes}}
+    <li><code>{{.Name}}</code>{{if .Unique}} <span class="key">UNIQUE</span>{{end}} ({{join .Columns ", "}})</li>
+  {{- end}}
+  </ul>
+  {{- end}}
+  {{- if .References}}
+  <h3>References</h3>
+  <ul class="plain">
+  {{- range .References}}
+    <li>({{.Columns}}) → {{if .Anchor}}<a href="#{{.Anchor}}">{{.Table}}</a>{{else}}{{.Table}}{{end}} ({{.RefColumns}}){{if .OnDelete}} <span class="muted">on delete {{.OnDelete}}</span>{{end}}</li>
+  {{- end}}
+  </ul>
+  {{- end}}
+  {{- if .ReferencedBy}}
+  <h3>Referenced by</h3>
+  <ul class="plain">
+  {{- range .ReferencedBy}}
+    <li><a href="#{{.Anchor}}">{{.Table}}</a> ({{.RefColumns}}){{if .OnDelete}} <span class="muted">on delete {{.OnDelete}}</span>{{end}}</li>
+  {{- end}}
+  </ul>
+  {{- end}}
+  {{- range .Findings}}
+  <div class="note {{.Severity}}"><span class="sev-{{.Severity}}">{{.Severity}}</span>: {{.Message}}</div>
+  {{- end}}
+  </section>
+  {{- end}}
+
+  {{- if .Findings}}
+  <h2 id="findings">Findings</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Severity</th><th>Table</th><th>Check</th><th>Detail</th></tr></thead>
+    <tbody>
+    {{- range .Findings}}
+      <tr><td class="sev-{{.Severity}}">{{.Severity}}</td><td>{{.Table}}</td><td><code>{{.Check}}</code></td><td>{{.Message}}</td></tr>
+    {{- end}}
+    </tbody>
+  </table></div>
+  {{- end}}
+</main>
+</div>
+<script>
+document.getElementById('filter').addEventListener('input', function (e) {
+  var q = e.target.value.toLowerCase();
+  document.querySelectorAll('#toc li').forEach(function (li) {
+    li.style.display = li.textContent.toLowerCase().indexOf(q) === -1 ? 'none' : '';
+  });
+});
+</script>
+{{- if .Diagram}}
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs';
+mermaid.initialize({
+  startOnLoad: true,
+  theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+  maxTextSize: 1000000
+});
+</script>
+{{- end}}
+</body>
+</html>
