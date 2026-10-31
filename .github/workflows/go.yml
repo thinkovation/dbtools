@@ -26,11 +26,16 @@ jobs:
           --health-retries 10
 
     env:
-      # Enables the dbinspect integration test against the service above.
+      # Enable the integration tests against the service above.
       DBINSPECT_PG_DSN: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+      DBCOPY_PG_DSN: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4
+
+      # dbcopy shells out to pg_dump/pg_restore, which must match the server.
+      - name: install PostgreSQL 16 client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-16
 
       - uses: actions/setup-go@v5
         with:
@@ -40,7 +45,7 @@ jobs:
       # go.work makes dbdoc build against the dbinspect in this checkout, so a
       # PR that changes both is tested together.
       - name: go vet
-        run: go vet ./dbinspect/... ./dbdoc/...
+        run: go vet ./dbinspect/... ./dbdoc/... ./dbcopy/...
 
       - name: go test
-        run: go test -race ./dbinspect/... ./dbdoc/...
+        run: go test -race ./dbinspect/... ./dbdoc/... ./dbcopy/...
